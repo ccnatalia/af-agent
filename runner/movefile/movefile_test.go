@@ -1,4 +1,4 @@
-package main
+package movefile
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestExecuteMoveFileTask(t *testing.T) {
+func TestExecute(t *testing.T) {
 	withTempWorkingDir(t)
 
 	if err := os.MkdirAll("source", 0755); err != nil {
@@ -17,7 +17,7 @@ func TestExecuteMoveFileTask(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	payload, err := json.Marshal(MoveFilePayload{
+	payload, err := json.Marshal(Payload{
 		SourcePath: "source/a.txt",
 		TargetPath: "target/b.txt",
 	})
@@ -25,14 +25,14 @@ func TestExecuteMoveFileTask(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := executeMoveFileTask(payload)
+	got, err := Execute(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	result, ok := got.(MoveFileResult)
+	result, ok := got.(Result)
 	if !ok {
-		t.Fatalf("result type = %T, want MoveFileResult", got)
+		t.Fatalf("result type = %T, want Result", got)
 	}
 	if result.Bytes != 5 {
 		t.Fatalf("bytes = %d, want 5", result.Bytes)
@@ -51,10 +51,10 @@ func TestExecuteMoveFileTask(t *testing.T) {
 	}
 }
 
-func TestExecuteMoveFileTaskRejectsOutsideWorkspace(t *testing.T) {
+func TestExecuteRejectsOutsideWorkspace(t *testing.T) {
 	withTempWorkingDir(t)
 
-	payload, err := json.Marshal(MoveFilePayload{
+	payload, err := json.Marshal(Payload{
 		SourcePath: "../a.txt",
 		TargetPath: "target/b.txt",
 	})
@@ -62,7 +62,7 @@ func TestExecuteMoveFileTaskRejectsOutsideWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := executeMoveFileTask(payload); err == nil {
+	if _, err := Execute(payload); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 }

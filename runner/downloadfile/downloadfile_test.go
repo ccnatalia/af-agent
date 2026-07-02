@@ -1,4 +1,4 @@
-package main
+package downloadfile
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestExecuteDownloadFileTask(t *testing.T) {
+func TestExecute(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
@@ -17,20 +17,9 @@ func TestExecuteDownloadFileTask(t *testing.T) {
 	}))
 	defer server.Close()
 
-	originalWd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(t.TempDir()); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.Chdir(originalWd); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	withTempWorkingDir(t)
 
-	payload, err := json.Marshal(DownloadFilePayload{
+	payload, err := json.Marshal(Payload{
 		URL:      server.URL + "/files/example.txt",
 		Filename: "example.txt",
 	})
@@ -38,14 +27,14 @@ func TestExecuteDownloadFileTask(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := executeDownloadFileTask(payload)
+	got, err := Execute(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	result, ok := got.(DownloadFileResult)
+	result, ok := got.(Result)
 	if !ok {
-		t.Fatalf("result type = %T, want DownloadFileResult", got)
+		t.Fatalf("result type = %T, want Result", got)
 	}
 
 	if result.Filename != "example.txt" {
@@ -62,4 +51,21 @@ func TestExecuteDownloadFileTask(t *testing.T) {
 	if string(content) != "downloaded content" {
 		t.Fatalf("content = %q, want downloaded content", string(content))
 	}
+}
+
+func withTempWorkingDir(t *testing.T) {
+	t.Helper()
+
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Fatal(err)
+		}
+	})
 }

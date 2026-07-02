@@ -6,14 +6,13 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"afagent/runner"
 )
 
 const maxSubmitTaskBodyBytes = 1 << 20
-const TaskNameDemo = "demo-task"
-const TaskNameDownloadFile = "download-file"
-const TaskNameMoveFile = "move-file"
 
-type TaskRunner func(payload json.RawMessage) (any, error)
+type TaskRunner = runner.TaskRunner
 
 type TaskStatus string
 
@@ -49,12 +48,8 @@ type TaskStore struct {
 
 func NewTaskStore() *TaskStore {
 	return &TaskStore{
-		tasks: make(map[string]*Task),
-		runners: map[string]TaskRunner{
-			TaskNameDemo:         executeDemoTask,
-			TaskNameDownloadFile: executeDownloadFileTask,
-			TaskNameMoveFile:     executeMoveFileTask,
-		},
+		tasks:   make(map[string]*Task),
+		runners: runner.Registry(),
 	}
 }
 
@@ -181,15 +176,6 @@ func (s *TaskStore) markFailed(requestID string, err error) {
 	task.Status = TaskStatusFailed
 	task.FinishedAt = &now
 	task.Error = &errMessage
-}
-
-func executeDemoTask(payload json.RawMessage) (any, error) {
-	time.Sleep(5 * time.Second)
-
-	return map[string]any{
-		"message":      "task completed",
-		"payload_size": len(payload),
-	}, nil
 }
 
 func cloneTask(task *Task) Task {

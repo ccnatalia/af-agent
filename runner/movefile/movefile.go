@@ -1,4 +1,4 @@
-package main
+package movefile
 
 import (
 	"encoding/json"
@@ -7,25 +7,29 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"afagent/runner/internal/workspace"
 )
 
-type MoveFilePayload struct {
+const Name = "move-file"
+
+type Payload struct {
 	SourcePath string `json:"source_path"`
 	TargetPath string `json:"target_path"`
 }
 
-type MoveFileResult struct {
+type Result struct {
 	SourcePath string `json:"source_path"`
 	TargetPath string `json:"target_path"`
 	Bytes      int64  `json:"bytes"`
 }
 
-func executeMoveFileTask(payload json.RawMessage) (any, error) {
+func Execute(payload json.RawMessage) (any, error) {
 	if len(payload) == 0 {
 		return nil, errors.New("payload is required")
 	}
 
-	var req MoveFilePayload
+	var req Payload
 	if err := json.Unmarshal(payload, &req); err != nil {
 		return nil, fmt.Errorf("invalid move-file payload: %w", err)
 	}
@@ -39,12 +43,12 @@ func executeMoveFileTask(payload json.RawMessage) (any, error) {
 		return nil, errors.New("target_path is required")
 	}
 
-	sourcePath, err := workspacePath(req.SourcePath)
+	sourcePath, err := workspace.Path(req.SourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("source_path: %w", err)
 	}
 
-	targetPath, err := workspacePath(req.TargetPath)
+	targetPath, err := workspace.Path(req.TargetPath)
 	if err != nil {
 		return nil, fmt.Errorf("target_path: %w", err)
 	}
@@ -71,36 +75,9 @@ func executeMoveFileTask(payload json.RawMessage) (any, error) {
 		return nil, fmt.Errorf("move file: %w", err)
 	}
 
-	return MoveFileResult{
+	return Result{
 		SourcePath: req.SourcePath,
 		TargetPath: req.TargetPath,
 		Bytes:      sourceInfo.Size(),
 	}, nil
-}
-
-func workspacePath(inputPath string) (string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	cleaned := filepath.Clean(inputPath)
-	if filepath.IsAbs(cleaned) {
-		return "", errors.New("absolute paths are not allowed")
-	}
-
-	absPath, err := filepath.Abs(cleaned)
-	if err != nil {
-		return "", err
-	}
-
-	rel, err := filepath.Rel(wd, absPath)
-	if err != nil {
-		return "", err
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", errors.New("path must stay inside workspace")
-	}
-
-	return absPath, nil
 }

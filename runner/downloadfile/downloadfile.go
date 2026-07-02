@@ -1,4 +1,4 @@
-package main
+package downloadfile
 
 import (
 	"encoding/json"
@@ -14,15 +14,16 @@ import (
 	"time"
 )
 
+const Name = "download-file"
 const downloadDir = "downloads"
 const maxDownloadFileBytes int64 = 100 << 20
 
-type DownloadFilePayload struct {
+type Payload struct {
 	URL      string `json:"url"`
 	Filename string `json:"filename,omitempty"`
 }
 
-type DownloadFileResult struct {
+type Result struct {
 	URL         string `json:"url"`
 	Path        string `json:"path"`
 	Filename    string `json:"filename"`
@@ -31,12 +32,12 @@ type DownloadFileResult struct {
 	ContentType string `json:"content_type,omitempty"`
 }
 
-func executeDownloadFileTask(payload json.RawMessage) (any, error) {
+func Execute(payload json.RawMessage) (any, error) {
 	if len(payload) == 0 {
 		return nil, errors.New("payload is required")
 	}
 
-	var req DownloadFilePayload
+	var req Payload
 	if err := json.Unmarshal(payload, &req); err != nil {
 		return nil, fmt.Errorf("invalid download-file payload: %w", err)
 	}
@@ -97,7 +98,7 @@ func executeDownloadFileTask(payload json.RawMessage) (any, error) {
 		return nil, fmt.Errorf("download file exceeds %d bytes", maxDownloadFileBytes)
 	}
 
-	return DownloadFileResult{
+	return Result{
 		URL:         req.URL,
 		Path:        targetPath,
 		Filename:    filepath.Base(targetPath),
