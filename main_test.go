@@ -27,7 +27,17 @@ func TestConfigureWorkspaceFromEnvUsesAFAGENTWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get working directory: %v", err)
 	}
-	if got != workspaceDir {
+
+	gotInfo, err := os.Stat(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantInfo, err := os.Stat(workspaceDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !os.SameFile(gotInfo, wantInfo) {
 		t.Fatalf("working directory = %q, want %q", got, workspaceDir)
 	}
 }
