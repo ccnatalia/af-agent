@@ -5,6 +5,7 @@ import (
 
 	"afagent/runner/demo"
 	"afagent/runner/downloadfile"
+	"afagent/runner/fileexists"
 	"afagent/runner/makefileexecutable"
 	"afagent/runner/movefile"
 	"afagent/runner/processexists"
@@ -14,6 +15,7 @@ import (
 
 const TaskNameDemo = demo.Name
 const TaskNameDownloadFile = downloadfile.Name
+const TaskNameFileExists = fileexists.Name
 const TaskNameMakeFileExecutable = makefileexecutable.Name
 const TaskNameMoveFile = movefile.Name
 const TaskNameProcessExists = processexists.Name
@@ -26,6 +28,7 @@ func Registry() map[string]TaskRunner {
 	return map[string]TaskRunner{
 		TaskNameDemo:               demo.Execute,
 		TaskNameDownloadFile:       downloadfile.Execute,
+		TaskNameFileExists:         fileexists.Execute,
 		TaskNameMakeFileExecutable: makefileexecutable.Execute,
 		TaskNameMoveFile:           movefile.Execute,
 		TaskNameProcessExists:      processexists.Execute,

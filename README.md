@@ -29,6 +29,15 @@ curl http://localhost:8080/api/tasks/submit \
      -d '{"request_id":"req-9348-2231","task_name":"make-file-executable","payload":{"path":"downloads/myfile_b"}}'
 ```
 
+### File Exists
+
+```
+curl http://localhost:8080/api/tasks/submit \
+     -H 'secret: dev-secret' \
+     -H 'Content-Type: application/json' \
+     -d '{"request_id":"req-6274-8042","task_name":"file-exists","payload":{"path":"downloads/myfile_b"}}'
+```
+
 ### Terminate Processes
 
 ```
