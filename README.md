@@ -1,5 +1,11 @@
 # ActionFabric Agent (af-agent)
 
+## Start
+
+```
+AF_AGENT_SECRET=dev-secret go run .
+```
+
 ## Submit Task
 
 ### Download File
