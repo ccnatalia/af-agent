@@ -23,7 +23,7 @@ curl http://localhost:18081/api/tasks/submit \
 ### Make File Executable
 
 ```
-curl http://localhost:18081/api/tasks/submit \
+curl http://localhost:8080/api/tasks/submit \
      -H 'secret: dev-secret' \
      -H 'Content-Type: application/json' \
      -d '{"request_id":"req-9348-2231","task_name":"make-file-executable","payload":{"path":"downloads/myfile_b"}}'
@@ -32,19 +32,28 @@ curl http://localhost:18081/api/tasks/submit \
 ### Terminate Processes
 
 ```
-curl http://localhost:18081/api/tasks/submit \
+curl http://localhost:8080/api/tasks/submit \
      -H 'secret: dev-secret' \
      -H 'Content-Type: application/json' \
-     -d '{"request_id":"req-5528-1914","task_name":"terminate-processes","payload":{"keyword":"my-process-keyword"}}'
+     -d '{"request_id":"req-5528-1914","task_name":"terminate-processes","payload":{"keyword":"delay_print"}}'
 ```
 
 ### Process Exists
 
 ```
-curl http://localhost:18081/api/tasks/submit \
+curl http://localhost:8080/api/tasks/submit \
      -H 'secret: dev-secret' \
      -H 'Content-Type: application/json' \
-     -d '{"request_id":"req-7712-4803","task_name":"process-exists","payload":{"keyword":"my-process-keyword"}}'
+     -d '{"request_id":"req-7712-4804","task_name":"process-exists","payload":{"keyword":"delay_print"}}'
+```
+
+### Run Startup Script
+
+```
+curl http://localhost:8080/api/tasks/submit \
+     -H 'secret: dev-secret' \
+     -H 'Content-Type: application/json' \
+     -d '{"request_id":"req-8391-4322","task_name":"run-startup-script","payload":{"path":"./delay_print.sh","working_dir":"./","timeout_seconds":30}}'
 ```
 
 ## Test

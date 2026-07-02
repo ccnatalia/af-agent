@@ -8,6 +8,7 @@ import (
 	"afagent/runner/makefileexecutable"
 	"afagent/runner/movefile"
 	"afagent/runner/processexists"
+	"afagent/runner/runstartupscript"
 	"afagent/runner/terminateprocesses"
 )
 
@@ -16,6 +17,7 @@ const TaskNameDownloadFile = downloadfile.Name
 const TaskNameMakeFileExecutable = makefileexecutable.Name
 const TaskNameMoveFile = movefile.Name
 const TaskNameProcessExists = processexists.Name
+const TaskNameRunStartupScript = runstartupscript.Name
 const TaskNameTerminateProcesses = terminateprocesses.Name
 
 type TaskRunner func(payload json.RawMessage) (any, error)
@@ -27,6 +29,7 @@ func Registry() map[string]TaskRunner {
 		TaskNameMakeFileExecutable: makefileexecutable.Execute,
 		TaskNameMoveFile:           movefile.Execute,
 		TaskNameProcessExists:      processexists.Execute,
+		TaskNameRunStartupScript:   runstartupscript.Execute,
 		TaskNameTerminateProcesses: terminateprocesses.Execute,
 	}
 }

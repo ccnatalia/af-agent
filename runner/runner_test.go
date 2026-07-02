@@ -11,6 +11,7 @@ func TestRegistryIncludesRunners(t *testing.T) {
 		TaskNameMakeFileExecutable,
 		TaskNameMoveFile,
 		TaskNameProcessExists,
+		TaskNameRunStartupScript,
 		TaskNameTerminateProcesses,
 	} {
 		if _, ok := registry[name]; !ok {

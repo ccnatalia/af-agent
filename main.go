@@ -11,6 +11,10 @@ import (
 )
 
 func main() {
+	if err := configureWorkspaceFromEnv(); err != nil {
+		log.Fatalf("configure workspace: %v", err)
+	}
+
 	secret := os.Getenv("AF_AGENT_SECRET")
 	if secret == "" {
 		log.Fatal("AF_AGENT_SECRET is required")
@@ -34,10 +38,23 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	log.Printf("http server listening on %s", server.Addr)
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("get working directory: %v", err)
+	}
+	log.Printf("http server listening on %s, working directory: %s", server.Addr, wd)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("http server failed: %v", err)
 	}
+}
+
+func configureWorkspaceFromEnv() error {
+	workspaceDir := os.Getenv("AF_AGENT_WORKSPACE")
+	if workspaceDir == "" {
+		return nil
+	}
+
+	return os.Chdir(workspaceDir)
 }
 
 func authMiddleware(secret string, next http.Handler) http.Handler {
