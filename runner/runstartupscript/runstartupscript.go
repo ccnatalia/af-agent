@@ -98,11 +98,8 @@ func normalize(req Payload) (Payload, string, string, time.Duration, error) {
 		return Payload{}, "", "", 0, err
 	}
 
-	scriptPath, err := workspace.Path(req.Path)
+	commandPath, err := resolveCommandPath(req.Path)
 	if err != nil {
-		return Payload{}, "", "", 0, fmt.Errorf("path: %w", err)
-	}
-	if err := validateScript(scriptPath); err != nil {
 		return Payload{}, "", "", 0, err
 	}
 
@@ -119,7 +116,31 @@ func normalize(req Payload) (Payload, string, string, time.Duration, error) {
 		return Payload{}, "", "", 0, err
 	}
 
-	return req, scriptPath, workingDir, timeout, nil
+	return req, commandPath, workingDir, timeout, nil
+}
+
+func resolveCommandPath(path string) (string, error) {
+	workspacePath, err := workspace.Path(path)
+	if err != nil {
+		return "", fmt.Errorf("path: %w", err)
+	}
+
+	if err := validateScript(workspacePath); err == nil {
+		return workspacePath, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+
+	if strings.ContainsRune(path, os.PathSeparator) {
+		return "", fmt.Errorf("stat path: %w", os.ErrNotExist)
+	}
+
+	commandPath, err := exec.LookPath(path)
+	if err != nil {
+		return "", fmt.Errorf("look up command: %w", err)
+	}
+
+	return commandPath, nil
 }
 
 func validateArgs(args []string) error {

@@ -10,11 +10,15 @@ import (
 )
 
 func List() ([]Info, error) {
-	output, err := exec.Command("ps", "-eo", "pid=,args=").Output()
+	output, err := exec.Command("ps", "-eo", "pid=", "-o", "args=").Output()
 	if err != nil {
 		return nil, err
 	}
 
+	return parseListOutput(output), nil
+}
+
+func parseListOutput(output []byte) []Info {
 	var processes []Info
 	for _, line := range bytes.Split(output, []byte{'\n'}) {
 		text := strings.TrimSpace(string(line))
@@ -34,5 +38,5 @@ func List() ([]Info, error) {
 		})
 	}
 
-	return processes, nil
+	return processes
 }

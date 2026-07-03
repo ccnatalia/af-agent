@@ -3,7 +3,7 @@
 ## Start
 
 ```
-AF_AGENT_SECRET=dev-secret go run .
+AF_AGENT_SECRET=dev-secret AF_AGENT_WORKSPACE=. go run .
 ```
 
 ## Submit Task

@@ -86,6 +86,37 @@ func TestExecuteDoesNotWaitForBackgroundProcessOutput(t *testing.T) {
 	}
 }
 
+func TestExecuteRunsCommandFromPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("whoami command lookup is POSIX-specific")
+	}
+
+	withTempWorkingDir(t)
+
+	payload, err := json.Marshal(Payload{
+		Path: "whoami",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := Execute(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, ok := got.(Result)
+	if !ok {
+		t.Fatalf("result type = %T, want Result", got)
+	}
+	if result.ExitCode != 0 {
+		t.Fatalf("exit code = %d, want 0", result.ExitCode)
+	}
+	if result.Stdout == "" {
+		t.Fatal("stdout is empty")
+	}
+}
+
 func TestExecuteRejectsOutsideWorkspace(t *testing.T) {
 	withTempWorkingDir(t)
 
