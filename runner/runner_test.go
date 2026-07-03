@@ -7,6 +7,7 @@ func TestRegistryIncludesRunners(t *testing.T) {
 
 	for _, name := range []string{
 		TaskNameDemo,
+		TaskNameDeleteFile,
 		TaskNameDownloadFile,
 		TaskNameFileExists,
 		TaskNameMakeFileExecutable,

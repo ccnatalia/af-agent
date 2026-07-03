@@ -44,6 +44,15 @@ curl http://localhost:8080/api/tasks/submit \
      -d '{"request_id":"req-6274-8042","task_name":"file-exists","payload":{"path":"downloads/myfile_b"}}'
 ```
 
+### Delete File
+
+```
+curl http://localhost:8080/api/tasks/submit \
+     -H 'secret: dev-secret' \
+     -H 'Content-Type: application/json' \
+     -d '{"request_id":"req-7584-1032","task_name":"delete-file","payload":{"path":"downloads/myfile_b"}}'
+```
+
 ### Terminate Processes
 
 ```

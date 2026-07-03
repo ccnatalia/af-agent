@@ -3,6 +3,7 @@ package runner
 import (
 	"encoding/json"
 
+	"afagent/runner/deletefile"
 	"afagent/runner/demo"
 	"afagent/runner/downloadfile"
 	"afagent/runner/fileexists"
@@ -14,6 +15,7 @@ import (
 )
 
 const TaskNameDemo = demo.Name
+const TaskNameDeleteFile = deletefile.Name
 const TaskNameDownloadFile = downloadfile.Name
 const TaskNameFileExists = fileexists.Name
 const TaskNameMakeFileExecutable = makefileexecutable.Name
@@ -27,6 +29,7 @@ type TaskRunner func(payload json.RawMessage) (any, error)
 func Registry() map[string]TaskRunner {
 	return map[string]TaskRunner{
 		TaskNameDemo:               demo.Execute,
+		TaskNameDeleteFile:         deletefile.Execute,
 		TaskNameDownloadFile:       downloadfile.Execute,
 		TaskNameFileExists:         fileexists.Execute,
 		TaskNameMakeFileExecutable: makefileexecutable.Execute,
