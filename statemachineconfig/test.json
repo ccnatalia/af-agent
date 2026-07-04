@@ -1,0 +1,121 @@
+[
+  {
+    "State": "start",
+    "Type": "start",
+    "NextState": "SetVariables"
+  },
+  {
+    "State": "end",
+    "Type": "end"
+  },
+  {
+    "State": "SetVariables",
+    "Type": "custom",
+    "Action": "SetVariables",
+    "Property": {
+      "Variables": {
+        "mux_compressed_file": "muxsingle_linux_amd64.tar.gz",
+        "mux_bin_file": "muxsingle_linux_amd64",
+        "af_agent_endpoint": "http://140.238.30.128:8080/api/tasks/submit",
+        "af_agent_secret": "dev-secret-951217"
+      }
+    },
+    "Transition": {
+      "ok": "DeleteCompressedFile"
+    }
+  },
+  {
+    "State": "DeleteCompressedFile",
+    "Type": "custom",
+    "Action": "AFAgentSubmitTask",
+    "Property": {
+      "endpoint": "${af_agent_endpoint}",
+      "secret": "${af_agent_secret}",
+      "task_name": "delete-file",
+      "payload": {
+        "path": "utp-cz/${mux_compressed_file}"
+      }
+    },
+    "Transition": {
+      "self": "DeleteCompressedFile",
+      "ok": "DownloadFile"
+    }
+  },
+  {
+    "State": "DownloadFile",
+    "Type": "custom",
+    "Action": "AFAgentSubmitTask",
+    "Property": {
+      "endpoint": "${af_agent_endpoint}",
+      "secret": "${af_agent_secret}",
+      "task_name": "download-file",
+      "payload": {
+        "url": "https://github.com/ccnatalia/PublicRelease/releases/download/v2.16.0010.000/${mux_compressed_file}",
+        "filename": "${mux_compressed_file}"
+      }
+    },
+    "Transition": {
+      "self": "DownloadFile",
+      "ok": "MoveFile"
+    }
+  },
+  {
+    "State": "MoveFile",
+    "Type": "custom",
+    "Action": "AFAgentSubmitTask",
+    "Property": {
+      "endpoint": "${af_agent_endpoint}",
+      "secret": "${af_agent_secret}",
+      "task_name": "move-file",
+      "payload": {
+        "source_path": "downloads/${mux_compressed_file}",
+        "target_path": "utp-cz/${mux_compressed_file}"
+      }
+    },
+    "Transition": {
+      "self": "MoveFile",
+      "ok": "ExtractFile"
+    }
+  },
+  {
+    "State": "ExtractFile",
+    "Type": "custom",
+    "Action": "AFAgentSubmitTask",
+    "Property": {
+      "endpoint": "${af_agent_endpoint}",
+      "secret": "${af_agent_secret}",
+      "task_name": "run-startup-script",
+      "payload": {
+        "path": "tools/extract.sh",
+        "args": [
+          "-d",
+          "utp-cz",
+          "utp-cz/${mux_compressed_file}"
+        ],
+        "working_dir": ".",
+        "timeout_seconds": 30
+      }
+    },
+    "Transition": {
+      "self": "ExtractFile",
+      "ok": "SetExecutable"
+    }
+  },
+  {
+    "State": "SetExecutable",
+    "Type": "custom",
+    "Action": "AFAgentSubmitTask",
+    "Property": {
+      "endpoint": "${af_agent_endpoint}",
+      "secret": "${af_agent_secret}",
+      "task_name": "make-file-executable",
+      "payload": {
+        "path": "utp-cz/${mux_bin_file}"
+      }
+    },
+    "Transition": {
+      "self": "SetExecutable",
+      "ok": "end"
+    }
+  }
+]
