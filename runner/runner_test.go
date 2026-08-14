@@ -13,6 +13,7 @@ func TestRegistryIncludesRunners(t *testing.T) {
 		TaskNameMakeFileExecutable,
 		TaskNameMoveFile,
 		TaskNameProcessExists,
+		TaskNameReadFile,
 		TaskNameRunStartupScript,
 		TaskNameTerminateProcesses,
 	} {

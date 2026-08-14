@@ -10,6 +10,7 @@ import (
 	"afagent/runner/makefileexecutable"
 	"afagent/runner/movefile"
 	"afagent/runner/processexists"
+	"afagent/runner/readfile"
 	"afagent/runner/runstartupscript"
 	"afagent/runner/terminateprocesses"
 )
@@ -21,6 +22,7 @@ const TaskNameFileExists = fileexists.Name
 const TaskNameMakeFileExecutable = makefileexecutable.Name
 const TaskNameMoveFile = movefile.Name
 const TaskNameProcessExists = processexists.Name
+const TaskNameReadFile = readfile.Name
 const TaskNameRunStartupScript = runstartupscript.Name
 const TaskNameTerminateProcesses = terminateprocesses.Name
 
@@ -35,6 +37,7 @@ func Registry() map[string]TaskRunner {
 		TaskNameMakeFileExecutable: makefileexecutable.Execute,
 		TaskNameMoveFile:           movefile.Execute,
 		TaskNameProcessExists:      processexists.Execute,
+		TaskNameReadFile:           readfile.Execute,
 		TaskNameRunStartupScript:   runstartupscript.Execute,
 		TaskNameTerminateProcesses: terminateprocesses.Execute,
 	}

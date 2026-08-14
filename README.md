@@ -53,6 +53,17 @@ curl http://localhost:8080/api/tasks/submit \
      -d '{"request_id":"req-7584-1032","task_name":"delete-file","payload":{"path":"downloads/myfile_b"}}'
 ```
 
+### Read File
+
+`max_bytes` is optional and cannot exceed 65536 bytes (64 KiB).
+
+```
+curl http://localhost:8080/api/tasks/submit \
+     -H 'secret: dev-secret' \
+     -H 'Content-Type: application/json' \
+     -d '{"request_id":"req-9417-3285","task_name":"read-file","payload":{"path":"downloads/myfile_b","max_bytes":65536}}'
+```
+
 ### Terminate Processes
 
 ```
