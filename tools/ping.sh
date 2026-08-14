@@ -22,3 +22,5 @@ if [ -n "$OUTPUT_FILE" ]; then
 else
     ping -c "$COUNT" "$HOST"
 fi
+
+exit 0
