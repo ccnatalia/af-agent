@@ -26,6 +26,8 @@ func main() {
 	}
 
 	taskStore := NewTaskStore()
+	defer taskStore.Close()
+	taskStore.StartCleanup()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthzHandler)

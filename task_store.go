@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -44,6 +45,7 @@ type TaskStore struct {
 	mu      sync.RWMutex
 	tasks   map[string]*Task
 	runners map[string]TaskRunner
+	closed  bool
 }
 
 func NewTaskStore() *TaskStore {
@@ -51,6 +53,36 @@ func NewTaskStore() *TaskStore {
 		tasks:   make(map[string]*Task),
 		runners: runner.Registry(),
 	}
+}
+
+func (s *TaskStore) Close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closed = true
+}
+
+func (s *TaskStore) StartCleanup() {
+	go func() {
+		for {
+			s.mu.Lock()
+			if s.closed {
+				s.mu.Unlock()
+				break
+			}
+			now := time.Now()
+			for k, v := range s.tasks {
+				if v.FinishedAt != nil {
+					t := *v.FinishedAt
+					if now.After(t.Add(time.Hour)) {
+						delete(s.tasks, k)
+					}
+				}
+			}
+			s.mu.Unlock()
+			time.Sleep(30 * time.Second)
+		}
+		log.Printf("TaskStore clean up loop exit")
+	}()
 }
 
 func (s *TaskStore) SubmitTask(w http.ResponseWriter, r *http.Request) {
