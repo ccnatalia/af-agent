@@ -73,7 +73,7 @@ func (s *TaskStore) StartCleanup() {
 			for k, v := range s.tasks {
 				if v.FinishedAt != nil {
 					t := *v.FinishedAt
-					if now.After(t.Add(time.Hour)) {
+					if now.After(t.Add(12 * time.Hour)) {
 						delete(s.tasks, k)
 					}
 				}
