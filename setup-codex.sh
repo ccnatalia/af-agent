@@ -47,17 +47,27 @@ fi
 
 CONFIG_TOML_FILE="$TARGET_DIR/config.toml"
 
-TOML_CONTENT='model_provider = "aicodemirror"
-model = "gpt-5.4"
-model_reasoning_effort = "xhigh"
+TOML_CONTENT='model_provider = "azure"
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
 disable_response_storage = true
 preferred_auth_method = "apikey"
 
 [model_providers.aicodemirror]
 name = "aicodemirror"
-base_url = "https://api.aicodemirror.com/api/codex/backend-api/codex"
+base_url = "https://llm-jcl.openai.azure.com/openai/v1"
 wire_api = "responses"
+
+[model_providers.azure]
+name = "Azure OpenAI"
+base_url = "https://llm-jcl.openai.azure.com/openai"
+env_key = "AZURE_OPENAI_API_KEY"
+wire_api = "responses"
+query_params = { api-version = "2025-04-01-preview" }
 '
+
+# base_url = "https://api.aicodemirror.com/api/codex/backend-api/codex"
+# export AZURE_OPENAI_API_KEY = "xxx"
 
 echo "$TOML_CONTENT" > "$CONFIG_TOML_FILE"
 
