@@ -13,7 +13,7 @@ import (
 )
 
 const Name = "read-file"
-const MaxReadBytes int64 = 65536 // 64K
+const MaxReadBytes int64 = 65536 * 1024 // 64MB
 
 type Payload struct {
 	Path     string `json:"path"`

@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -53,10 +54,11 @@ func FullUpdate(rootDir string) error {
 			return nil
 		}
 
-		relativePath, err := filepath.Rel(rootDir, path)
+		nativeRelativePath, err := filepath.Rel(rootDir, path)
 		if err != nil {
 			return fmt.Errorf("resolve relative path %q: %w", path, err)
 		}
+		relativePath := filepath.ToSlash(nativeRelativePath)
 		if err := validateRelativePath(relativePath); err != nil {
 			return err
 		}
@@ -92,15 +94,15 @@ func IncrementalUpdate(rootDir string, relativePath string) error {
 		return err
 	}
 
-	relativePath = filepath.Clean(relativePath)
+	relativePath = path.Clean(relativePath)
 	if err := validateRelativePath(relativePath); err != nil {
 		return err
 	}
-	if relativePath == Filename || strings.HasPrefix(relativePath, temporaryFilePrefix) {
+	if relativePath == Filename || (!strings.Contains(relativePath, "/") && isTemporaryManifestName(relativePath)) {
 		return errors.New("relative path must not reference the manifest")
 	}
 
-	filePath := filepath.Join(rootDir, relativePath)
+	filePath := filepath.Join(rootDir, filepath.FromSlash(relativePath))
 	if err := rejectSymlinkPath(rootDir, relativePath); err != nil {
 		return err
 	}
@@ -199,11 +201,14 @@ func validateRelativePath(relativePath string) error {
 	if relativePath == "" || relativePath == "." {
 		return errors.New("relative path is required")
 	}
-	if filepath.IsAbs(relativePath) {
+	if path.IsAbs(relativePath) {
 		return errors.New("path must be relative to root directory")
 	}
-	if relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(filepath.Separator)) {
+	if relativePath == ".." || strings.HasPrefix(relativePath, "../") {
 		return errors.New("path must stay inside root directory")
+	}
+	if strings.Contains(relativePath, "\\") {
+		return errors.New("path must use forward slashes as directory separators")
 	}
 	if strings.ContainsAny(relativePath, "\r\n") {
 		return errors.New("path must not contain a line break")
@@ -213,7 +218,7 @@ func validateRelativePath(relativePath string) error {
 
 func rejectSymlinkPath(rootDir string, relativePath string) error {
 	currentPath := rootDir
-	for _, part := range strings.Split(relativePath, string(filepath.Separator)) {
+	for _, part := range strings.Split(relativePath, "/") {
 		currentPath = filepath.Join(currentPath, part)
 		info, err := os.Lstat(currentPath)
 		if err != nil {
@@ -313,5 +318,9 @@ func writeRecord(writer *bufio.Writer, item record) error {
 }
 
 func isTemporaryManifest(rootDir string, path string) bool {
-	return filepath.Dir(path) == rootDir && strings.HasPrefix(filepath.Base(path), temporaryFilePrefix)
+	return filepath.Dir(path) == rootDir && isTemporaryManifestName(filepath.Base(path))
+}
+
+func isTemporaryManifestName(name string) bool {
+	return strings.HasPrefix(name, temporaryFilePrefix) && strings.HasSuffix(name, ".tmp")
 }

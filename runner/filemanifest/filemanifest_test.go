@@ -19,7 +19,7 @@ func TestFullUpdate(t *testing.T) {
 	}
 
 	want := strings.Join([]string{
-		"5D41402ABC4B2A76B9719D911017C592," + filepath.Join("nested", "a.txt"),
+		"5D41402ABC4B2A76B9719D911017C592,nested/a.txt",
 		"7D793037A0760186574B0282F2F435E7,z.txt",
 		"",
 	}, "\n")
@@ -53,14 +53,14 @@ func TestIncrementalUpdateReplacesAndAddsRecords(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeTestFile(t, filepath.Join(rootDir, "nested", "c.txt"), "")
-	if err := IncrementalUpdate(rootDir, filepath.Join("nested", "c.txt")); err != nil {
+	if err := IncrementalUpdate(rootDir, "nested/c.txt"); err != nil {
 		t.Fatal(err)
 	}
 
 	want := strings.Join([]string{
 		"5D41402ABC4B2A76B9719D911017C592,a.txt",
 		"8977DFAC2F8E04CB96E66882235F5ABA,b.txt",
-		"D41D8CD98F00B204E9800998ECF8427E," + filepath.Join("nested", "c.txt"),
+		"D41D8CD98F00B204E9800998ECF8427E,nested/c.txt",
 		"",
 	}, "\n")
 	assertFileContent(t, filepath.Join(rootDir, Filename), want)
@@ -92,10 +92,90 @@ func TestIncrementalUpdatePreservesMalformedManifest(t *testing.T) {
 func TestIncrementalUpdateRejectsUnsafePath(t *testing.T) {
 	rootDir := t.TempDir()
 
-	for _, relativePath := range []string{"", ".", filepath.Join("..", "file.txt"), Filename} {
+	for _, relativePath := range []string{"", ".", "../file.txt", `nested\file.txt`, Filename} {
 		t.Run(relativePath, func(t *testing.T) {
 			if err := IncrementalUpdate(rootDir, relativePath); err == nil {
 				t.Fatalf("IncrementalUpdate(%q) returned nil error", relativePath)
+			}
+		})
+	}
+}
+
+func TestFullUpdateTemporaryManifestPathRules(t *testing.T) {
+	rootDir := t.TempDir()
+	writeTestFile(t, filepath.Join(rootDir, temporaryFilePrefix+"stale.tmp"), "temporary")
+	writeTestFile(t, filepath.Join(rootDir, temporaryFilePrefix+".tmp"), "temporary")
+	writeTestFile(t, filepath.Join(rootDir, temporaryFilePrefix+"notes"), "hello")
+	writeTestFile(t, filepath.Join(rootDir, temporaryFilePrefix+"stale.tmp.bak"), "world")
+	writeTestFile(t, filepath.Join(rootDir, "ordinary.tmp"), "changed")
+	writeTestFile(t, filepath.Join(rootDir, temporaryFilePrefix+"cache", "item.txt"), "")
+
+	if err := FullUpdate(rootDir); err != nil {
+		t.Fatal(err)
+	}
+
+	want := strings.Join([]string{
+		"D41D8CD98F00B204E9800998ECF8427E,.file-md5-cache/item.txt",
+		"5D41402ABC4B2A76B9719D911017C592,.file-md5-notes",
+		"7D793037A0760186574B0282F2F435E7,.file-md5-stale.tmp.bak",
+		"8977DFAC2F8E04CB96E66882235F5ABA,ordinary.tmp",
+		"",
+	}, "\n")
+	assertFileContent(t, filepath.Join(rootDir, Filename), want)
+}
+
+func TestIncrementalUpdateTemporaryManifestPathRules(t *testing.T) {
+	rootDir := t.TempDir()
+	manifestPath := filepath.Join(rootDir, Filename)
+	reservedPath := temporaryFilePrefix + "stale.tmp"
+	writeTestFile(t, filepath.Join(rootDir, "a.txt"), "hello")
+	writeTestFile(t, filepath.Join(rootDir, reservedPath), "temporary")
+	if err := FullUpdate(rootDir); err != nil {
+		t.Fatal(err)
+	}
+	originalManifest, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := IncrementalUpdate(rootDir, reservedPath); err == nil {
+		t.Fatalf("IncrementalUpdate(%q) returned nil error", reservedPath)
+	}
+	assertFileContent(t, manifestPath, string(originalManifest))
+
+	allowedPaths := []string{
+		temporaryFilePrefix + "notes",
+		temporaryFilePrefix + "cache/item.tmp",
+	}
+	for _, relativePath := range allowedPaths {
+		writeTestFile(t, filepath.Join(rootDir, filepath.FromSlash(relativePath)), "world")
+		if err := IncrementalUpdate(rootDir, relativePath); err != nil {
+			t.Fatalf("IncrementalUpdate(%q): %v", relativePath, err)
+		}
+	}
+	want := strings.Join([]string{
+		"7D793037A0760186574B0282F2F435E7,.file-md5-cache/item.tmp",
+		"7D793037A0760186574B0282F2F435E7,.file-md5-notes",
+		"5D41402ABC4B2A76B9719D911017C592,a.txt",
+		"",
+	}, "\n")
+	assertFileContent(t, manifestPath, want)
+}
+
+func TestIsTemporaryManifestName(t *testing.T) {
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{name: ".file-md5-a.tmp", want: true},
+		{name: ".file-md5-.tmp", want: true},
+		{name: ".file-md5-a", want: false},
+		{name: ".file-md5-a.tmp.bak", want: false},
+		{name: "file-md5-a.tmp", want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isTemporaryManifestName(test.name); got != test.want {
+				t.Fatalf("isTemporaryManifestName(%q) = %t, want %t", test.name, got, test.want)
 			}
 		})
 	}

@@ -31,6 +31,7 @@ D41D8CD98F00B204E9800998ECF8427E,config/settings.json
 
 - 全量更新时，`path` 是文件相对于指定根目录的路径。
 - 增量更新时，`path` 由调用方提供，并且必须使用与全量更新相同的相对路径表示。
+- `path` 在所有平台上统一使用 `/` 作为目录分隔符，不得使用 `\`。访问文件系统时由实现转换为当前平台的本地路径。
 - path 不得为空。
 - 每行前 32 个字符是 MD5，第 33 个字符必须是逗号，剩余内容全部是 path。
 - path 可以包含逗号，但不得包含回车或换行符。
@@ -39,6 +40,7 @@ D41D8CD98F00B204E9800998ECF8427E,config/settings.json
 - 每个 path 只能出现一次。
 - 记录按 path 原始字节升序排列，使文件内容保持稳定且便于查看差异。
 - Manifest 本身不得作为待同步文件参与比较。
+- 根目录下符合 `.file-md5-*.tmp` 的文件名保留给 Manifest 临时文件，不得作为待同步文件；嵌套目录中的同名文件不受此限制。
 
 ## 3. 文件 MD5
 
@@ -73,7 +75,7 @@ Manifest 固定为 `filepath.Join(rootDir, "file-md5.txt")`。
 
 ### `IncrementalUpdate`
 
-`rootDir` 是文件所在的根目录，`relativePath` 是目标文件相对于 `rootDir` 的路径。函数读取该文件并计算内容 MD5，然后新增或替换 Manifest 中对应 `relativePath` 的记录；其他旧记录保持不变。
+`rootDir` 是文件所在的根目录，`relativePath` 是目标文件相对于 `rootDir` 的路径，并在所有平台上使用 `/` 作为目录分隔符。函数读取该文件并计算内容 MD5，然后新增或替换 Manifest 中对应 `relativePath` 的记录；其他旧记录保持不变。
 
 单个文件更新示例：
 
@@ -149,8 +151,8 @@ filePath = filepath.Join(rootDir, relativePath)
 1. 确认 `rootDir` 存在并且是目录。
 2. 递归遍历 `rootDir` 下的普通文件，不跟随符号链接。
 3. 对每个文件进行流式读取并计算大写 MD5。
-4. 使用文件相对于 `rootDir` 的路径生成 `MD5,path` 记录。
-5. 排除 Manifest 文件及本次生成的临时文件，避免将其写入自身。
+4. 使用文件相对于 `rootDir` 的路径生成 `MD5,path` 记录，并将目录分隔符统一转换为 `/`。
+5. 排除 Manifest 文件及根目录下符合 `.file-md5-*.tmp` 的保留临时文件，避免将其写入自身。
 6. 按相对路径原始字节排序。
 7. 将全部记录写入临时文件。
 8. 原子替换旧 Manifest。

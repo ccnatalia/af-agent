@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -53,7 +54,7 @@ func Execute(payload json.RawMessage) (any, error) {
 
 	return Result{
 		RootDir:      filepath.Clean(req.RootDir),
-		RelativePath: filepath.Clean(req.RelativePath),
+		RelativePath: path.Clean(req.RelativePath),
 		ManifestPath: filepath.Join(filepath.Clean(req.RootDir), filemanifest.Filename),
 	}, nil
 }
