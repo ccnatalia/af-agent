@@ -115,25 +115,142 @@ func TestExecuteRejectsSymlinkInTargetPath(t *testing.T) {
 	assertErrorContains(t, err, "target_path must not contain symlinks")
 }
 
-func TestExecuteDoesNotOverwriteExistingTarget(t *testing.T) {
+func TestExecuteBacksUpExistingTarget(t *testing.T) {
 	withTempWorkingDir(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("replacement"))
+	}))
+	defer server.Close()
 
 	if err := os.WriteFile("existing.txt", []byte("original"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err := Execute(marshal(t, Payload{
-		URL:        "https://example.com/file.txt",
+	got, err := Execute(marshal(t, Payload{
+		URL:        server.URL,
 		TargetPath: "existing.txt",
 	}))
-	assertErrorContains(t, err, "target_path already exists")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := got.(Result)
+	if !strings.HasPrefix(result.BackupPath, "existing.txt.") || !strings.HasSuffix(result.BackupPath, ".bak") {
+		t.Fatalf("backup path = %q, want timestamped backup", result.BackupPath)
+	}
 
 	content, err := os.ReadFile("existing.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
+	if string(content) != "replacement" {
+		t.Fatalf("content = %q, want replacement", string(content))
+	}
+	backupContent, err := os.ReadFile(result.BackupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(backupContent) != "original" {
+		t.Fatalf("backup content = %q, want original", string(backupContent))
+	}
+}
+
+func TestExecuteFailureKeepsBackupWithoutRestoringTarget(t *testing.T) {
+	withTempWorkingDir(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	if err := os.WriteFile("existing.txt", []byte("original"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Execute(marshal(t, Payload{URL: server.URL, TargetPath: "existing.txt"}))
+	assertErrorContains(t, err, "unexpected status 500")
+	assertErrorContains(t, err, "previous file preserved at existing.txt.")
+	assertPathDoesNotExist(t, "existing.txt")
+
+	backups, globErr := filepath.Glob("existing.txt.*.bak")
+	if globErr != nil {
+		t.Fatal(globErr)
+	}
+	if len(backups) != 1 {
+		t.Fatalf("backups = %v, want exactly one", backups)
+	}
+	content, readErr := os.ReadFile(backups[0])
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
 	if string(content) != "original" {
-		t.Fatalf("content = %q, want original", string(content))
+		t.Fatalf("backup content = %q, want original", string(content))
+	}
+}
+
+func TestBackupExistingTargetAvoidsBackupNameCollision(t *testing.T) {
+	withTempWorkingDir(t)
+	backupTime := time.Date(2026, time.October, 6, 15, 30, 12, 123456789, time.UTC)
+	baseBackupPath := "existing.txt.20261006T153012.123456789Z.bak"
+	if err := os.WriteFile("existing.txt", []byte("original"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(baseBackupPath, []byte("older backup"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	backupPath, err := backupExistingTarget("existing.txt", backupTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if backupPath != "existing.txt.20261006T153012.123456789Z-1.bak" {
+		t.Fatalf("backup path = %q", backupPath)
+	}
+	content, err := os.ReadFile(baseBackupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "older backup" {
+		t.Fatalf("existing backup content = %q, want older backup", string(content))
+	}
+}
+
+func TestExecuteRejectsNonRegularExistingTarget(t *testing.T) {
+	withTempWorkingDir(t)
+	if err := os.Mkdir("existing", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Execute(marshal(t, Payload{
+		URL:        "https://example.com/file.txt",
+		TargetPath: "existing",
+	}))
+	assertErrorContains(t, err, "existing target_path must be a regular file")
+}
+
+func TestExecuteRejectsConcurrentDownloadToSameTarget(t *testing.T) {
+	withTempWorkingDir(t)
+	requestStarted := make(chan struct{})
+	releaseRequest := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(requestStarted)
+		<-releaseRequest
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("downloaded"))
+	}))
+	defer server.Close()
+
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := Execute(marshal(t, Payload{URL: server.URL, TargetPath: "same.txt"}))
+		firstDone <- err
+	}()
+	<-requestStarted
+
+	_, err := Execute(marshal(t, Payload{URL: server.URL, TargetPath: "same.txt"}))
+	assertErrorContains(t, err, "target_path is already being downloaded")
+	close(releaseRequest)
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
 	}
 }
 

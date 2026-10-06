@@ -90,7 +90,7 @@ IncrementalUpdate(rootDir, "assets/app.tar.gz")
 - 两个函数都从 `rootDir` 自动确定 Manifest 路径，调用方不传入 `manifestPath`。
 - `relativePath` 为空或文件无法读取时返回错误。
 - 任何目录遍历、文件读取、校验、读取旧 Manifest 或写入失败时返回错误，并保持原 Manifest 不变。
-- 同一个 Manifest 不支持并发调用；调用方必须串行执行两个函数。
+- 同一进程内，对同一个 Manifest 的调用会按 `rootDir` 自动串行执行；不同 Manifest 可以并发更新。跨进程调用仍需由调用方保证串行。
 - 函数成功返回表示新的 Manifest 已经完成原子替换。
 
 除这两个函数外，解析、排序和临时文件处理都应是包内实现。

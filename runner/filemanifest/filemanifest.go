@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 const Filename = "file-md5.txt"
@@ -24,11 +25,23 @@ type record struct {
 	MD5  string
 }
 
+type manifestLock struct {
+	mutex      sync.Mutex
+	references int
+}
+
+var manifestLocks = struct {
+	sync.Mutex
+	byRootDir map[string]*manifestLock
+}{byRootDir: make(map[string]*manifestLock)}
+
 func FullUpdate(rootDir string) error {
 	rootDir, err := validateRootDir(rootDir)
 	if err != nil {
 		return err
 	}
+	unlock := lockManifest(rootDir)
+	defer unlock()
 
 	manifestPath := filepath.Join(rootDir, Filename)
 	records := make([]record, 0)
@@ -101,6 +114,8 @@ func IncrementalUpdate(rootDir string, relativePath string) error {
 	if relativePath == Filename || (!strings.Contains(relativePath, "/") && isTemporaryManifestName(relativePath)) {
 		return errors.New("relative path must not reference the manifest")
 	}
+	unlock := lockManifest(rootDir)
+	defer unlock()
 
 	filePath := filepath.Join(rootDir, filepath.FromSlash(relativePath))
 	if err := rejectSymlinkPath(rootDir, relativePath); err != nil {
@@ -174,6 +189,29 @@ func IncrementalUpdate(rootDir string, relativePath string) error {
 		}
 		return nil
 	})
+}
+
+func lockManifest(rootDir string) func() {
+	manifestLocks.Lock()
+	lock := manifestLocks.byRootDir[rootDir]
+	if lock == nil {
+		lock = &manifestLock{}
+		manifestLocks.byRootDir[rootDir] = lock
+	}
+	lock.references++
+	manifestLocks.Unlock()
+
+	lock.mutex.Lock()
+	return func() {
+		lock.mutex.Unlock()
+
+		manifestLocks.Lock()
+		lock.references--
+		if lock.references == 0 {
+			delete(manifestLocks.byRootDir, rootDir)
+		}
+		manifestLocks.Unlock()
+	}
 }
 
 func validateRootDir(rootDir string) (string, error) {

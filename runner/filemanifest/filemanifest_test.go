@@ -1,9 +1,11 @@
 package filemanifest
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -74,6 +76,47 @@ func TestIncrementalUpdateCreatesManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertFileContent(t, filepath.Join(rootDir, Filename), "5D41402ABC4B2A76B9719D911017C592,file.txt\n")
+}
+
+func TestIncrementalUpdateSerializesConcurrentUpdates(t *testing.T) {
+	rootDir := t.TempDir()
+	const fileCount = 32
+	for i := 0; i < fileCount; i++ {
+		name := fmt.Sprintf("file-%02d.txt", i)
+		writeTestFile(t, filepath.Join(rootDir, name), fmt.Sprintf("content-%02d", i))
+	}
+
+	start := make(chan struct{})
+	errors := make(chan error, fileCount)
+	var workers sync.WaitGroup
+	for i := 0; i < fileCount; i++ {
+		name := fmt.Sprintf("file-%02d.txt", i)
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			<-start
+			errors <- IncrementalUpdate(rootDir, name)
+		}()
+	}
+	close(start)
+	workers.Wait()
+	close(errors)
+	for err := range errors {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var want strings.Builder
+	for i := 0; i < fileCount; i++ {
+		name := fmt.Sprintf("file-%02d.txt", i)
+		fileMD5, err := hashFile(filepath.Join(rootDir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Fprintf(&want, "%s,%s\n", fileMD5, name)
+	}
+	assertFileContent(t, filepath.Join(rootDir, Filename), want.String())
 }
 
 func TestIncrementalUpdatePreservesMalformedManifest(t *testing.T) {

@@ -1,0 +1,1 @@
+AF_AGENT_SECRET=dev-secret AF_AGENT_WORKSPACE=. go run .

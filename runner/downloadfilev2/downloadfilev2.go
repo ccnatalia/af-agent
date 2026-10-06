@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"afagent/runner/internal/workspace"
@@ -49,10 +50,16 @@ type Result struct {
 	URL         string `json:"url"`
 	Path        string `json:"path"`
 	Filename    string `json:"filename"`
+	BackupPath  string `json:"backup_path,omitempty"`
 	Bytes       int64  `json:"bytes"`
 	StatusCode  int    `json:"status_code"`
 	ContentType string `json:"content_type,omitempty"`
 }
+
+var activeTargets = struct {
+	sync.Mutex
+	paths map[string]struct{}
+}{paths: make(map[string]struct{})}
 
 type timeoutConfig struct {
 	connect        time.Duration
@@ -62,7 +69,7 @@ type timeoutConfig struct {
 	total          time.Duration
 }
 
-func Execute(payload json.RawMessage) (any, error) {
+func Execute(payload json.RawMessage) (_ any, returnErr error) {
 	if len(payload) == 0 {
 		return nil, errors.New("payload is required")
 	}
@@ -103,11 +110,33 @@ func Execute(payload json.RawMessage) (any, error) {
 		return nil, err
 	}
 
+	if !reserveTarget(targetPath) {
+		return nil, errors.New("target_path is already being downloaded")
+	}
+	defer releaseTarget(targetPath)
+
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
 		return nil, fmt.Errorf("create target dir: %w", err)
 	}
 	if err := ensureSafeTargetParent(targetPath); err != nil {
 		return nil, fmt.Errorf("target_path: %w", err)
+	}
+
+	backupPath, err := backupExistingTarget(targetPath, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	backupResultPath := ""
+	if backupPath != "" {
+		backupResultPath = backupPath
+		if relativePath, err := workspaceRelativePath(backupPath); err == nil {
+			backupResultPath = relativePath
+		}
+		defer func() {
+			if returnErr != nil {
+				returnErr = fmt.Errorf("%w; previous file preserved at %s", returnErr, backupResultPath)
+			}
+		}()
 	}
 
 	targetFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
@@ -197,10 +226,73 @@ func Execute(payload json.RawMessage) (any, error) {
 		URL:         req.URL,
 		Path:        filepath.Clean(req.TargetPath),
 		Filename:    filepath.Base(targetPath),
+		BackupPath:  backupResultPath,
 		Bytes:       written,
 		StatusCode:  resp.StatusCode,
 		ContentType: resp.Header.Get("Content-Type"),
 	}, nil
+}
+
+func reserveTarget(targetPath string) bool {
+	activeTargets.Lock()
+	defer activeTargets.Unlock()
+
+	if _, exists := activeTargets.paths[targetPath]; exists {
+		return false
+	}
+	activeTargets.paths[targetPath] = struct{}{}
+	return true
+}
+
+func releaseTarget(targetPath string) {
+	activeTargets.Lock()
+	delete(activeTargets.paths, targetPath)
+	activeTargets.Unlock()
+}
+
+func backupExistingTarget(targetPath string, backupTime time.Time) (string, error) {
+	info, err := os.Lstat(targetPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("stat existing target file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", errors.New("existing target_path must be a regular file")
+	}
+
+	timestamp := backupTime.UTC().Format("20060102T150405.000000000Z")
+	for sequence := 0; ; sequence++ {
+		suffix := timestamp
+		if sequence > 0 {
+			suffix = fmt.Sprintf("%s-%d", timestamp, sequence)
+		}
+		backupPath := fmt.Sprintf("%s.%s.bak", targetPath, suffix)
+
+		if _, err := os.Lstat(backupPath); err == nil {
+			continue
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("check backup path: %w", err)
+		}
+
+		if err := os.Rename(targetPath, backupPath); err != nil {
+			return "", fmt.Errorf("backup existing target file: %w", err)
+		}
+		return backupPath, nil
+	}
+}
+
+func workspaceRelativePath(path string) (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	relativePath, err := filepath.Rel(wd, path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(relativePath), nil
 }
 
 func resolveTimeouts(payload TimeoutPayload) (timeoutConfig, error) {
